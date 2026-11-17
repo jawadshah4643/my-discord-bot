@@ -83,7 +83,7 @@ async function appendToSheet(tabName, values) {
 }
 
 // ============================================================
-//  ON READY
+//  ON READY (Fixed to prevent duplicate messages)
 // ============================================================
 client.once(Events.ClientReady, async (c) => {
   console.log(`Logged in as ${c.user.tag}`);
@@ -99,19 +99,36 @@ client.once(Events.ClientReady, async (c) => {
     }
   }
 
-  const channel = await client.channels.fetch(VERIFY_CHANNEL_ID);
-  const embed = new EmbedBuilder()
-    .setTitle('Verification Required')
-    .setDescription('Enter your TikTok username by clicking the **Verify** button below to get full server access.')
-    .setColor(0x5865f2);
-  const button = new ButtonBuilder()
-    .setCustomId('verify_button')
-    .setLabel('Verify')
-    .setStyle(ButtonStyle.Success);
-  const row = new ActionRowBuilder().addComponents(button);
-  await channel.send({ embeds: [embed], components: [row] });
-});
+  try {
+    const channel = await client.channels.fetch(VERIFY_CHANNEL_ID);
+    
+    // Fetch the last 50 messages to check for existing buttons
+    const messages = await channel.messages.fetch({ limit: 50 });
+    
+    // Check if the bot has already sent a verification message in this channel
+    const botMessage = messages.find(m => m.author.id === client.user.id && m.embeds.length > 0);
 
+    if (!botMessage) {
+      // If NO existing message is found, send a new one
+      const embed = new EmbedBuilder()
+        .setTitle('Verification Required')
+        .setDescription('Enter your TikTok username by clicking the **Verify** button below to get full server access.')
+        .setColor(0x5865f2);
+      const button = new ButtonBuilder()
+        .setCustomId('verify_button')
+        .setLabel('Verify')
+        .setStyle(ButtonStyle.Success);
+      const row = new ActionRowBuilder().addComponents(button);
+      await channel.send({ embeds: [embed], components: [row] });
+      console.log("Sent a new verification message.");
+    } else {
+      // If it already exists, skip sending to avoid spamming the channel
+      console.log("Verification message already exists. Skipping duplicate.");
+    }
+  } catch (err) {
+    console.error("Failed to check or send verification message:", err.message);
+  }
+});
 // ============================================================
 //  KEEP INVITE CACHE FRESH
 // ============================================================
