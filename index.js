@@ -83,11 +83,12 @@ async function appendToSheet(tabName, values) {
 }
 
 // ============================================================
-//  ON READY (Fixed to prevent duplicate messages)
+//  UNIFIED ON READY (Handles Verification & Free Sample Setups)
 // ============================================================
 client.once(Events.ClientReady, async (c) => {
   console.log(`Logged in as ${c.user.tag}`);
 
+  // 1. Fetch Invites
   for (const guild of c.guilds.cache.values()) {
     try {
       const invites = await guild.invites.fetch();
@@ -99,17 +100,13 @@ client.once(Events.ClientReady, async (c) => {
     }
   }
 
+  // 2. Setup #verify-yourself Channel Message
   try {
     const channel = await client.channels.fetch(VERIFY_CHANNEL_ID);
-    
-    // Fetch the last 50 messages to check for existing buttons
     const messages = await channel.messages.fetch({ limit: 50 });
-    
-    // Check if the bot has already sent a verification message in this channel
     const botMessage = messages.find(m => m.author.id === client.user.id && m.embeds.length > 0);
 
     if (!botMessage) {
-      // If NO existing message is found, send a new one
       const embed = new EmbedBuilder()
         .setTitle('Verification Required')
         .setDescription('Enter your TikTok username by clicking the **Verify** button below to get full server access.')
@@ -122,11 +119,37 @@ client.once(Events.ClientReady, async (c) => {
       await channel.send({ embeds: [embed], components: [row] });
       console.log("Sent a new verification message.");
     } else {
-      // If it already exists, skip sending to avoid spamming the channel
       console.log("Verification message already exists. Skipping duplicate.");
     }
   } catch (err) {
     console.error("Failed to check or send verification message:", err.message);
+  }
+
+  // 3. Setup #free-sample-here Private Channel Message
+  try {
+    const sampleChannel = await client.channels.fetch(process.env.SAMPLE_CHANNEL_ID);
+    const sampleMessages = await sampleChannel.messages.fetch({ limit: 50 });
+    const existingSampleButton = sampleMessages.find(m => m.author.id === client.user.id && m.components.length > 0);
+
+    if (!existingSampleButton) {
+      const embed = new EmbedBuilder()
+        .setTitle('🎁 Claim Your Free Sample')
+        .setDescription('Click the button below to submit your name and secure your free sample!')
+        .setColor(0x2ecc71);
+
+      const button = new ButtonBuilder()
+        .setCustomId('sample_button')
+        .setLabel('Claim Free Sample')
+        .setStyle(ButtonStyle.Primary);
+
+      const row = new ActionRowBuilder().addComponents(button);
+      await sampleChannel.send({ embeds: [embed], components: [row] });
+      console.log("Posted the Free Sample button message.");
+    } else {
+      console.log("Free Sample button already exists. Skipping duplicate.");
+    }
+  } catch (err) {
+    console.error("Failed to post free sample button:", err.message);
   }
 });
 // ============================================================
@@ -226,37 +249,6 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return;
   }
 });
-// ============================================================
-//  FREE SAMPLE COMPONENT — SEND BUTTON ON INITIALIZATION
-// ============================================================
-// This will automatically post a button in your sample channel when the bot turns on, 
-// but ONLY if the button isn't already there (preventing spam!).
-client.on(Events.ClientReady, async () => {
-  try {
-    const channel = await client.channels.fetch(process.env.SAMPLE_CHANNEL_ID);
-    const messages = await channel.messages.fetch({ limit: 50 });
-    const existingButton = messages.find(m => m.author.id === client.user.id && m.components.length > 0);
-
-    if (!existingButton) {
-      const embed = new EmbedBuilder()
-        .setTitle('🎁 Claim Your Free Sample')
-        .setDescription('Click the button below to submit your name and secure your free sample!')
-        .setColor(0x2ecc71);
-
-      const button = new ButtonBuilder()
-        .setCustomId('sample_button')
-        .setLabel('Claim Free Sample')
-        .setStyle(ButtonStyle.Primary);
-
-      const row = new ActionRowBuilder().addComponents(button);
-      await channel.send({ embeds: [embed], components: [row] });
-      console.log("Posted the Free Sample button message.");
-    }
-  } catch (err) {
-    console.error("Failed to post free sample button:", err.message);
-  }
-});
-
 // ============================================================
 //  FREE SAMPLE INTERACTION (Button Click -> Modal Form -> Sheet)
 // ============================================================
