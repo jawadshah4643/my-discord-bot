@@ -226,5 +226,36 @@ client.on(Events.InteractionCreate, async (interaction) => {
     return;
   }
 });
+// ============================================================
+//  FREE SAMPLE TRACKER (Records names sent in channel)
+// ============================================================
+client.on(Events.MessageCreate, async (message) => {
+  // Ignore messages from bots to prevent loops
+  if (message.author.bot) return;
 
+  // Check if the message was sent in the specific free sample channel
+  if (message.channel.id === process.env.SAMPLE_CHANNEL_ID) {
+    try {
+      const when       = new Date().toLocaleString();
+      const discordTag = message.author.tag;
+      const discordId  = message.author.id;
+      const typedName  = message.content; // The text the user sent
+
+      // Append data to the 'Samples' tab you just created
+      await appendToSheet('Samples', [when, discordTag, discordId, typedName]);
+
+      // Reply to the user to confirm it was recorded safely
+      await message.reply({
+        content: `Thank you ${message.author}! Your name **"${typedName}"** has been successfully recorded for a free sample. ✅`
+      });
+
+      console.log(`Sample recorded for ${discordTag}: ${typedName}`);
+    } catch (err) {
+      console.error("Failed to process free sample submission:", err.message);
+      await message.reply({
+        content: "An error occurred while saving your entry. Please contact an admin."
+      });
+    }
+  }
+});
 client.login(TOKEN);
