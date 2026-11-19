@@ -300,4 +300,5 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     return;
   }
+  });
 client.login(TOKEN);
