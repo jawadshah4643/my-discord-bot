@@ -250,6 +250,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 });
 // ============================================================
+// ============================================================
 //  FREE SAMPLE INTERACTION (Button Click -> Modal Form -> Sheet)
 // ============================================================
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -261,9 +262,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     const input = new TextInputBuilder()
       .setCustomId('sample_full_name')
-      .setLabel('Enter your full name')
+      .setLabel('Enter your TikTok username (no spaces)')
       .setStyle(TextInputStyle.Short)
-      .setPlaceholder('John Doe')
+      .setPlaceholder('yourusername')
       .setRequired(true)
       .setMaxLength(50);
 
@@ -277,7 +278,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const fullName = interaction.fields.getTextInputValue('sample_full_name');
 
     // Instantly acknowledge the click to prevent Discord from timeout errors
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply({ flags: 64 }); // Fixed flag format for v14 ephemeral reply
 
     try {
       const when       = new Date().toLocaleString();
@@ -288,7 +289,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await appendToSheet('Samples', [when, discordTag, discordId, fullName]);
 
       await interaction.editReply({
-        content: `Success! Your name **"${fullName}"** has been securely recorded for a free sample. ✅`,
+        content: `Success! Your TikTok username **"${fullName}"** has been securely recorded for a free sample. ✅`,
       });
       console.log(`Sample recorded for ${discordTag}: ${fullName}`);
     } catch (err) {
