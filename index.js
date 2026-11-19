@@ -227,35 +227,85 @@ client.on(Events.InteractionCreate, async (interaction) => {
   }
 });
 // ============================================================
-//  FREE SAMPLE TRACKER (Records names sent in channel)
+//  FREE SAMPLE COMPONENT — SEND BUTTON ON INITIALIZATION
 // ============================================================
-client.on(Events.MessageCreate, async (message) => {
-  // Ignore messages from bots to prevent loops
-  if (message.author.bot) return;
+// This will automatically post a button in your sample channel when the bot turns on, 
+// but ONLY if the button isn't already there (preventing spam!).
+client.on(Events.ClientReady, async () => {
+  try {
+    const channel = await client.channels.fetch(process.env.SAMPLE_CHANNEL_ID);
+    const messages = await channel.messages.fetch({ limit: 50 });
+    const existingButton = messages.find(m => m.author.id === client.user.id && m.components.length > 0);
 
-  // Check if the message was sent in the specific free sample channel
-  if (message.channel.id === process.env.SAMPLE_CHANNEL_ID) {
+    if (!existingButton) {
+      const embed = new EmbedBuilder()
+        .setTitle('🎁 Claim Your Free Sample')
+        .setDescription('Click the button below to submit your name and secure your free sample!')
+        .setColor(0x2ecc71);
+
+      const button = new ButtonBuilder()
+        .setCustomId('sample_button')
+        .setLabel('Claim Free Sample')
+        .setStyle(ButtonStyle.Primary);
+
+      const row = new ActionRowBuilder().addComponents(button);
+      await channel.send({ embeds: [embed], components: [row] });
+      console.log("Posted the Free Sample button message.");
+    }
+  } catch (err) {
+    console.error("Failed to post free sample button:", err.message);
+  }
+});
+
+// ============================================================
+//  FREE SAMPLE INTERACTION (Button Click -> Modal Form -> Sheet)
+// ============================================================
+client.on(Events.InteractionCreate, async (interaction) => {
+  // 1. Handle Button Click to open the Form (Modal)
+  if (interaction.isButton() && interaction.customId === 'sample_button') {
+    const modal = new ModalBuilder()
+      .setCustomId('sample_modal')
+      .setTitle('Free Sample Request');
+
+    const input = new TextInputBuilder()
+      .setCustomId('sample_full_name')
+      .setLabel('Enter your full name')
+      .setStyle(TextInputStyle.Short)
+      .setPlaceholder('John Doe')
+      .setRequired(true)
+      .setMaxLength(50);
+
+    modal.addComponents(new ActionRowBuilder().addComponents(input));
+    await interaction.showModal(modal);
+    return;
+  }
+
+  // 2. Handle Form Submission
+  if (interaction.isModalSubmit() && interaction.customId === 'sample_modal') {
+    const fullName = interaction.fields.getTextInputValue('sample_full_name');
+
+    // Instantly acknowledge the click to prevent Discord from timeout errors
+    await interaction.deferReply({ ephemeral: true });
+
     try {
       const when       = new Date().toLocaleString();
-      const discordTag = message.author.tag;
-      const discordId  = message.author.id;
-      const typedName  = message.content; // The text the user sent
+      const discordTag = interaction.user.tag;
+      const discordId  = interaction.user.id;
 
-      // Append data to the 'Samples' tab you just created
-      await appendToSheet('Samples', [when, discordTag, discordId, typedName]);
+      // Append recorded name data straight to your Google Sheet 'Samples' tab
+      await appendToSheet('Samples', [when, discordTag, discordId, fullName]);
 
-      // Reply to the user to confirm it was recorded safely
-      await message.reply({
-        content: `Thank you ${message.author}! Your name **"${typedName}"** has been successfully recorded for a free sample. ✅`
+      await interaction.editReply({
+        content: `Success! Your name **"${fullName}"** has been securely recorded for a free sample. ✅`,
       });
-
-      console.log(`Sample recorded for ${discordTag}: ${typedName}`);
+      console.log(`Sample recorded for ${discordTag}: ${fullName}`);
     } catch (err) {
-      console.error("Failed to process free sample submission:", err.message);
-      await message.reply({
-        content: "An error occurred while saving your entry. Please contact an admin."
+      console.error("Failed to record sample data:", err.message);
+      await interaction.editReply({
+        content: 'Something went wrong while saving your entry. Please contact an admin.',
       });
     }
+    return;
   }
 });
 client.login(TOKEN);
