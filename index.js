@@ -278,15 +278,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
     const fullName = interaction.fields.getTextInputValue('sample_full_name');
 
     // Instantly acknowledge the click to prevent Discord from timeout errors
-    await interaction.deferReply({ flags: 64 }); // Fixed flag format for v14 ephemeral reply
+    await interaction.deferReply({ flags: 64 }); 
 
     try {
       const when       = new Date().toLocaleString();
       const discordTag = interaction.user.tag;
       const discordId  = interaction.user.id;
 
-      // Append recorded name data straight to your Google Sheet 'Samples' tab
-      await appendToSheet('Samples', [when, discordTag, discordId, fullName]);
+      // UPDATED TO YOUR EXACT CUSTOM TAB NAME HERE:
+      await appendToSheet('Jolly Smile Samples', [when, discordTag, discordId, fullName]);
 
       await interaction.editReply({
         content: `Success! Your TikTok username **"${fullName}"** has been securely recorded for a free sample. ✅`,
@@ -300,5 +300,4 @@ client.on(Events.InteractionCreate, async (interaction) => {
     }
     return;
   }
-});
 client.login(TOKEN);
