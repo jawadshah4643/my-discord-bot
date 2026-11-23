@@ -278,81 +278,96 @@ await interaction.showModal(modal);
 return;
 }
 }
-// ---------------- MODAL SUBMISSIONS ----------------
-if (interaction.isModalSubmit()) {
-// 1. Verification Modal Submit
-if (interaction.customId === 'verify_modal') {
-const username = interaction.fields.getTextInputValue('tiktok_username');
-if (/\s/.test(username)) {
-await interaction.reply({
-content: 'Error: Username must not contain spaces. Please click Verify again and try without spaces.',
-flags: 64,
+  // ---------------- MODAL SUBMISSIONS ----------------
+  if (interaction.isModalSubmit()) {
+
+    // 1. Verification Modal Submit
+    if (interaction.customId === 'verify_modal') {
+      const username = interaction.fields.getTextInputValue('tiktok_username');
+
+      if (/\s/.test(username)) {
+        await interaction.reply({
+          content: 'Error: Username must not contain spaces. Please click Verify again and try without spaces.',
+          flags: 64,
+        });
+        return;
+      }
+
+      await interaction.deferReply({ flags: 64 });
+
+      try {
+        const member = await interaction.guild.members.fetch(interaction.user.id);
+        await member.roles.add(VERIFIED_ROLE_ID);
+
+        await appendToSheet('Verified', [
+          new Date().toLocaleString(),
+          interaction.user.tag,
+          interaction.user.id,
+          username,
+        ]);
+
+        await interaction.editReply({
+          content: "Verified! Your TikTok " + username + " was saved and you now have full server access.",
+        });
+      } catch (err) {
+        console.error(err);
+        await interaction.editReply({
+          content: 'Something went wrong granting your role. Contact an admin.',
+        });
+      }
+      return;
+    }
+
+    // 2. Jolly Smile Free Sample Modal Submit
+    if (interaction.customId === 'sample_modal') {
+      const fullName = interaction.fields.getTextInputValue('sample_full_name');
+      await interaction.deferReply({ flags: 64 });
+
+      try {
+        const when       = new Date().toLocaleString();
+        const discordTag = interaction.user.tag;
+        const discordId  = interaction.user.id;
+
+        await appendToSheet('Jolly Smile Samples', [when, discordTag, discordId, fullName]);
+
+        await interaction.editReply({
+          content: 'Success! Your TikTok username **"' + fullName + '"** has been securely recorded for a free sample.',
+        });
+        console.log("Jolly Smile sample recorded for " + discordTag + ": " + fullName);
+      } catch (err) {
+        console.error("Failed to record Jolly Smile sample data:", err.message);
+        await interaction.editReply({
+          content: 'Something went wrong while saving your entry. Please contact an admin.',
+        });
+      }
+      return;
+    }
+
+    // 3. Kavayn Free Sample Modal Submit
+    if (interaction.customId === 'kavayn_sample_modal') {
+      const kavaynUsername = interaction.fields.getTextInputValue('kavayn_tiktok_username');
+      await interaction.deferReply({ flags: 64 });
+
+      try {
+        const when       = new Date().toLocaleString();
+        const discordTag = interaction.user.tag;
+        const discordId  = interaction.user.id;
+
+        await appendToSheet('Kavayn Samples', [when, discordTag, discordId, kavaynUsername]);
+
+        await interaction.editReply({
+          content: 'Success! Your TikTok username **"' + kavaynUsername + '"** has been securely recorded for a Kavayn free sample.',
+        });
+        console.log("Kavayn sample recorded for " + discordTag + ": " + kavaynUsername);
+      } catch (err) {
+        console.error("Failed to record Kavayn sample data:", err.message);
+        await interaction.editReply({
+          content: 'Something went wrong while saving your entry. Please contact an admin.',
+        });
+      }
+      return;
+    }
+  }
 });
-return;
-}
-await interaction.deferReply({ flags: 64 });
-try {
-const member = await interaction.guild.members.fetch(interaction.user.id);
-await member.roles.add(VERIFIED_ROLE_ID);
-await appendToSheet('Verified', [
-new Date().toLocaleString(),
-interaction.user.tag,
-interaction.user.id,
-username,
-]);
-await interaction.editReply({
-content: Verified! Your TikTok ${username} was saved and you now have full server access.,
-});
-} catch (err) {
-console.error(err);
-await interaction.editReply({
-content: 'Something went wrong granting your role. Contact an admin.',
-});
-}
-return;
-}
-// 2. Jolly Smile Free Sample Modal Submit
-if (interaction.customId === 'sample_modal') {
-const fullName = interaction.fields.getTextInputValue('sample_full_name');
-await interaction.deferReply({ flags: 64 });
-try {
-const when       = new Date().toLocaleString();
-const discordTag = interaction.user.tag;
-const discordId  = interaction.user.id;
-await appendToSheet('Jolly Smile Samples', [when, discordTag, discordId, fullName]);
-await interaction.editReply({
-content: Success! Your TikTok username **"${fullName}"** has been securely recorded for a free sample. ✅,
-});
-console.log(Jolly Smile sample recorded for ${discordTag}: ${fullName});
-} catch (err) {
-console.error("Failed to record Jolly Smile sample data:", err.message);
-await interaction.editReply({
-content: 'Something went wrong while saving your entry. Please contact an admin.',
-});
-}
-return;
-}
-// 3. Kavayn Free Sample Modal Submit
-if (interaction.customId === 'kavayn_sample_modal') {
-const kavaynUsername = interaction.fields.getTextInputValue('kavayn_tiktok_username');
-await interaction.deferReply({ flags: 64 });
-try {
-const when       = new Date().toLocaleString();
-const discordTag = interaction.user.tag;
-const discordId  = interaction.user.id;
-await appendToSheet('Kavayn Samples', [when, discordTag, discordId, kavaynUsername]);
-await interaction.editReply({
-content: Success! Your TikTok username **"${kavaynUsername}"** has been securely recorded for a Kavayn free sample. ✅,
-});
-console.log(Kavayn sample recorded for ${discordTag}: ${kavaynUsername});
-} catch (err) {
-console.error("Failed to record Kavayn sample data:", err.message);
-await interaction.editReply({
-content: 'Something went wrong while saving your entry. Please contact an admin.',
-});
-}
-return;
-}
-}
-});
+
 client.login(TOKEN);
