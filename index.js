@@ -1,13 +1,6 @@
 // ============================================================
-//  Discord Bot  —  Verification + Invite Tracking
-//  RAILWAY / CLOUD VERSION  (discord.js v14)
-// ============================================================
-//  Difference from the local version:
-//   - Reads all secrets from ENVIRONMENT VARIABLES (set on Railway),
-//     NOT from inside this file. Nothing secret is written here.
-//   - Google key is read from an env variable too (GOOGLE_CREDENTIALS).
-//   - No local CSV/JSON backup (cloud containers reset). All data
-//     goes to your Google Sheet, which is permanent.
+//  Discord Bot  —  Verification + Invite Tracking + Brand Samples
+//  RENDER / CLOUD VERSION  (discord.js v14)
 // ============================================================
 
 const {
@@ -24,6 +17,7 @@ const {
 } = require('discord.js');
 
 const { google } = require('googleapis');
+
 // ---------------- DUMMY WEB SERVER FOR RENDER ----------------
 const http = require('http');
 http.createServer((req, res) => {
@@ -35,11 +29,13 @@ http.createServer((req, res) => {
 // -------------------------------------------------------------
 
 // ---------------- READ SECRETS FROM ENVIRONMENT ----------------
-const TOKEN             = process.env.TOKEN;
-const VERIFY_CHANNEL_ID = process.env.VERIFY_CHANNEL_ID;
-const VERIFIED_ROLE_ID  = process.env.VERIFIED_ROLE_ID;
-const SPREADSHEET_ID    = process.env.SPREADSHEET_ID;
+const TOKEN              = process.env.TOKEN;
+const VERIFY_CHANNEL_ID  = process.env.VERIFY_CHANNEL_ID;
+const VERIFIED_ROLE_ID   = process.env.VERIFIED_ROLE_ID;
+const SPREADSHEET_ID     = process.env.SPREADSHEET_ID;
 const GOOGLE_CREDENTIALS = process.env.GOOGLE_CREDENTIALS; // full JSON as a string
+const SAMPLE_CHANNEL_ID  = process.env.SAMPLE_CHANNEL_ID;  // Jolly Smile Channel
+const KAVAYN_CHANNEL_ID  = process.env.KAVAYN_CHANNEL_ID;  // Kavayn Channel
 // ---------------------------------------------------------------
 
 // Safety check so we get a clear message if a variable is missing.
@@ -47,7 +43,7 @@ for (const [name, val] of Object.entries({
   TOKEN, VERIFY_CHANNEL_ID, VERIFIED_ROLE_ID, SPREADSHEET_ID, GOOGLE_CREDENTIALS,
 })) {
   if (!val) {
-    console.error(`MISSING ENVIRONMENT VARIABLE: ${name} — set it in Railway > Variables.`);
+    console.error(`MISSING ENVIRONMENT VARIABLE: ${name} — set it in Render > Variables.`);
     process.exit(1);
   }
 }
@@ -125,33 +121,65 @@ client.once(Events.ClientReady, async (c) => {
     console.error("Failed to check or send verification message:", err.message);
   }
 
-  // 3. Setup #free-sample-here Private Channel Message
-  try {
-    const sampleChannel = await client.channels.fetch(process.env.SAMPLE_CHANNEL_ID);
-    const sampleMessages = await sampleChannel.messages.fetch({ limit: 50 });
-    const existingSampleButton = sampleMessages.find(m => m.author.id === client.user.id && m.components.length > 0);
+  // 3. Setup Jolly Smile Free Sample Channel Message
+  if (SAMPLE_CHANNEL_ID) {
+    try {
+      const sampleChannel = await client.channels.fetch(SAMPLE_CHANNEL_ID);
+      const sampleMessages = await sampleChannel.messages.fetch({ limit: 50 });
+      const existingSampleButton = sampleMessages.find(m => m.author.id === client.user.id && m.components.length > 0);
 
-    if (!existingSampleButton) {
-      const embed = new EmbedBuilder()
-        .setTitle('🎁 Claim Your Free Sample')
-        .setDescription('Click the button below to submit your name and secure your free sample!')
-        .setColor(0x2ecc71);
+      if (!existingSampleButton) {
+        const embed = new EmbedBuilder()
+          .setTitle('🎁 Claim Your Free Sample')
+          .setDescription('Click the button below to submit your TikTok username and secure your free sample!')
+          .setColor(0x2ecc71);
 
-      const button = new ButtonBuilder()
-        .setCustomId('sample_button')
-        .setLabel('Claim Free Sample')
-        .setStyle(ButtonStyle.Primary);
+        const button = new ButtonBuilder()
+          .setCustomId('sample_button')
+          .setLabel('Claim Free Sample')
+          .setStyle(ButtonStyle.Primary);
 
-      const row = new ActionRowBuilder().addComponents(button);
-      await sampleChannel.send({ embeds: [embed], components: [row] });
-      console.log("Posted the Free Sample button message.");
-    } else {
-      console.log("Free Sample button already exists. Skipping duplicate.");
+        const row = new ActionRowBuilder().addComponents(button);
+        await sampleChannel.send({ embeds: [embed], components: [row] });
+        console.log("Posted the Jolly Smile Free Sample button message.");
+      } else {
+        console.log("Jolly Smile Free Sample button already exists. Skipping duplicate.");
+      }
+    } catch (err) {
+      console.error("Failed to post Jolly Smile free sample button:", err.message);
     }
-  } catch (err) {
-    console.error("Failed to post free sample button:", err.message);
+  }
+
+  // 4. Setup Kavayn Free Sample Channel Message
+  if (KAVAYN_CHANNEL_ID) {
+    try {
+      const kavaynChannel = await client.channels.fetch(KAVAYN_CHANNEL_ID);
+      const kavaynMessages = await kavaynChannel.messages.fetch({ limit: 50 });
+      const existingKavaynButton = kavaynMessages.find(m => m.author.id === client.user.id && m.components.length > 0);
+
+      if (!existingKavaynButton) {
+        const embed = new EmbedBuilder()
+          .setTitle('🎁 Claim Your Kavayn Free Sample')
+          .setDescription('Click the button below to submit your TikTok username and secure your free sample!')
+          .setColor(0x2ecc71);
+
+        const button = new ButtonBuilder()
+          .setCustomId('kavayn_sample_button')
+          .setLabel('Claim Free Sample')
+          .setStyle(ButtonStyle.Primary);
+
+        const row = new ActionRowBuilder().addComponents(button);
+        await kavaynChannel.send({ embeds: [embed], components: [row] });
+        console.log("Posted the Kavayn Free Sample button message.");
+      } else {
+        console.log("Kavayn Free Sample button already exists. Skipping duplicate.");
+      }
+    } catch (err) {
+      console.error("Failed to post Kavayn free sample button:", err.message);
+    }
   }
 });
+
 // ============================================================
 //  KEEP INVITE CACHE FRESH
 // ============================================================
@@ -193,112 +221,138 @@ client.on(Events.GuildMemberAdd, async (member) => {
 });
 
 // ============================================================
-//  VERIFICATION button + modal
+//  ALL BUTTONS & MODALS (Verification + Jolly Smile + Kavayn)
 // ============================================================
 client.on(Events.InteractionCreate, async (interaction) => {
 
-  if (interaction.isButton() && interaction.customId === 'verify_button') {
-    const modal = new ModalBuilder()
-      .setCustomId('verify_modal')
-      .setTitle('TikTok Verification');
-    const input = new TextInputBuilder()
-      .setCustomId('tiktok_username')
-      .setLabel('Your TikTok username (no spaces)')
-      .setStyle(TextInputStyle.Short)
-      .setPlaceholder('yourusername')
-      .setRequired(true)
-      .setMaxLength(30);
-    modal.addComponents(new ActionRowBuilder().addComponents(input));
-    await interaction.showModal(modal);
-    return;
-  }
+  // ---------------- BUTTON CLICKS ----------------
+  if (interaction.isButton()) {
 
-  if (interaction.isModalSubmit() && interaction.customId === 'verify_modal') {
-    const username = interaction.fields.getTextInputValue('tiktok_username');
-
-    if (/\s/.test(username)) {
-      await interaction.reply({
-        content: 'Error: Username must not contain spaces. Please click Verify again and try without spaces.',
-        flags: 64,
-      });
+    // 1. Verification Button
+    if (interaction.customId === 'verify_button') {
+      const modal = new ModalBuilder()
+        .setCustomId('verify_modal')
+        .setTitle('TikTok Verification');
+      const input = new TextInputBuilder()
+        .setCustomId('tiktok_username')
+        .setLabel('Your TikTok username (no spaces)')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('yourusername')
+        .setRequired(true)
+        .setMaxLength(30);
+      modal.addComponents(new ActionRowBuilder().addComponents(input));
+      await interaction.showModal(modal);
       return;
     }
 
-    await interaction.deferReply({ flags: 64 }); // "working on it" within 3 seconds
-
-    try {
-      const member = await interaction.guild.members.fetch(interaction.user.id);
-      await member.roles.add(VERIFIED_ROLE_ID);
-
-      await appendToSheet('Verified', [
-        new Date().toLocaleString(),
-        interaction.user.tag,
-        interaction.user.id,
-        username,
-      ]);
-
-      await interaction.editReply({
-        content: `Verified! Your TikTok ${username} was saved and you now have full server access.`,
-      });
-    } catch (err) {
-      console.error(err);
-      await interaction.editReply({
-        content: 'Something went wrong granting your role. Contact an admin.',
-      });
-    }
-    return;
-  }
+    // 2. Jolly Smile Free Sample Button
+    if (interaction.customId === 'sample_button') {
+      const modal = new ModalBuilder()
+        .setCustomId('sample_modal')
+        .setTitle('Free Sample Request');
+      const input = new TextInputBuilder()
+        .setCustomId('sample_full_name')
+        .setLabel('Enter your TikTok username (no spaces)')
+        .setStyle(TextInputStyle.Short)
+        .setPlaceholder('yourusername')
+        .setRequired(true)
+        .setMaxLength(50);
+modal.addComponents(new ActionRowBuilder().addComponents(input));
+await interaction.showModal(modal);
+return;
+}
+// 3. Kavayn Free Sample Button
+if (interaction.customId === 'kavayn_sample_button') {
+const modal = new ModalBuilder()
+.setCustomId('kavayn_sample_modal')
+.setTitle('Kavayn Free Sample Request');
+const input = new TextInputBuilder()
+.setCustomId('kavayn_tiktok_username')
+.setLabel('Enter your TikTok username (no spaces)')
+.setStyle(TextInputStyle.Short)
+.setPlaceholder('yourusername')
+.setRequired(true)
+.setMaxLength(50);
+modal.addComponents(new ActionRowBuilder().addComponents(input));
+await interaction.showModal(modal);
+return;
+}
+}
+// ---------------- MODAL SUBMISSIONS ----------------
+if (interaction.isModalSubmit()) {
+// 1. Verification Modal Submit
+if (interaction.customId === 'verify_modal') {
+const username = interaction.fields.getTextInputValue('tiktok_username');
+if (/\s/.test(username)) {
+await interaction.reply({
+content: 'Error: Username must not contain spaces. Please click Verify again and try without spaces.',
+flags: 64,
 });
-// ============================================================
-// ============================================================
-//  FREE SAMPLE INTERACTION (Button Click -> Modal Form -> Sheet)
-// ============================================================
-client.on(Events.InteractionCreate, async (interaction) => {
-  // 1. Handle Button Click to open the Form (Modal)
-  if (interaction.isButton() && interaction.customId === 'sample_button') {
-    const modal = new ModalBuilder()
-      .setCustomId('sample_modal')
-      .setTitle('Free Sample Request');
-
-    const input = new TextInputBuilder()
-      .setCustomId('sample_full_name')
-      .setLabel('Enter your TikTok username (no spaces)')
-      .setStyle(TextInputStyle.Short)
-      .setPlaceholder('yourusername')
-      .setRequired(true)
-      .setMaxLength(50);
-
-    modal.addComponents(new ActionRowBuilder().addComponents(input));
-    await interaction.showModal(modal);
-    return;
-  }
-
-  // 2. Handle Form Submission
-  if (interaction.isModalSubmit() && interaction.customId === 'sample_modal') {
-    const fullName = interaction.fields.getTextInputValue('sample_full_name');
-
-    // Instantly acknowledge the click to prevent Discord from timeout errors
-    await interaction.deferReply({ flags: 64 }); 
-
-    try {
-      const when       = new Date().toLocaleString();
-      const discordTag = interaction.user.tag;
-      const discordId  = interaction.user.id;
-
-      // UPDATED TO YOUR EXACT CUSTOM TAB NAME HERE:
-      await appendToSheet('Jolly Smile Samples', [when, discordTag, discordId, fullName]);
-
-      await interaction.editReply({
-        content: `Success! Your TikTok username **"${fullName}"** has been securely recorded for a free sample. ✅`,
-      });
-      console.log(`Sample recorded for ${discordTag}: ${fullName}`);
-    } catch (err) {
-      console.error("Failed to record sample data:", err.message);
-      await interaction.editReply({
-        content: 'Something went wrong while saving your entry. Please contact an admin.',
-      });
-    }
-    return;
-  }
-  });
+return;
+}
+await interaction.deferReply({ flags: 64 });
+try {
+const member = await interaction.guild.members.fetch(interaction.user.id);
+await member.roles.add(VERIFIED_ROLE_ID);
+await appendToSheet('Verified', [
+new Date().toLocaleString(),
+interaction.user.tag,
+interaction.user.id,
+username,
+]);
+await interaction.editReply({
+content: Verified! Your TikTok ${username} was saved and you now have full server access.,
+});
+} catch (err) {
+console.error(err);
+await interaction.editReply({
+content: 'Something went wrong granting your role. Contact an admin.',
+});
+}
+return;
+}
+// 2. Jolly Smile Free Sample Modal Submit
+if (interaction.customId === 'sample_modal') {
+const fullName = interaction.fields.getTextInputValue('sample_full_name');
+await interaction.deferReply({ flags: 64 });
+try {
+const when       = new Date().toLocaleString();
+const discordTag = interaction.user.tag;
+const discordId  = interaction.user.id;
+await appendToSheet('Jolly Smile Samples', [when, discordTag, discordId, fullName]);
+await interaction.editReply({
+content: Success! Your TikTok username **"${fullName}"** has been securely recorded for a free sample. ✅,
+});
+console.log(Jolly Smile sample recorded for ${discordTag}: ${fullName});
+} catch (err) {
+console.error("Failed to record Jolly Smile sample data:", err.message);
+await interaction.editReply({
+content: 'Something went wrong while saving your entry. Please contact an admin.',
+});
+}
+return;
+}
+// 3. Kavayn Free Sample Modal Submit
+if (interaction.customId === 'kavayn_sample_modal') {
+const kavaynUsername = interaction.fields.getTextInputValue('kavayn_tiktok_username');
+await interaction.deferReply({ flags: 64 });
+try {
+const when       = new Date().toLocaleString();
+const discordTag = interaction.user.tag;
+const discordId  = interaction.user.id;
+await appendToSheet('Kavayn Samples', [when, discordTag, discordId, kavaynUsername]);
+await interaction.editReply({
+content: Success! Your TikTok username **"${kavaynUsername}"** has been securely recorded for a Kavayn free sample. ✅,
+});
+console.log(Kavayn sample recorded for ${discordTag}: ${kavaynUsername});
+} catch (err) {
+console.error("Failed to record Kavayn sample data:", err.message);
+await interaction.editReply({
+content: 'Something went wrong while saving your entry. Please contact an admin.',
+});
+}
+return;
+}
+}
+});
 client.login(TOKEN);
